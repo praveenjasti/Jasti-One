@@ -10,7 +10,7 @@ dependencies = ["PySide6==6.12.0", "psutil==7.2.2"]
 
 [project.optional-dependencies]
 gmail = ["google-api-python-client==2.120.0", "google-auth-oauthlib==1.2.0"]
-dev = ["pytest==9.0.3", "pip-audit==2.10.1", "bandit==1.9.4", "cyclonedx-bom==9.0.0"]
+dev = ["pytest==9.2.0", "pip-audit==2.10.1", "bandit==1.9.4", "cyclonedx-bom==9.0.0"]
 
 [project.scripts]
 jasti-one = "pdcm.app:main"
