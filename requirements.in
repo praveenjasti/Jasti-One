@@ -1,0 +1,10 @@
+# PROVISIONAL DIRECT-DEPENDENCY INPUT ONLY — NOT A COMPLETE LOCKFILE.
+# Transitive versions and hashes are unresolved; do not use this as release evidence.
+PySide6==6.7.0
+psutil==5.9.8
+google-api-python-client==2.120.0
+google-auth-oauthlib==1.2.0
+pytest==9.0.3
+pip-audit==2.7.3
+bandit==1.7.8
+cyclonedx-bom==4.3.0
