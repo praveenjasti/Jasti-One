@@ -44,6 +44,20 @@ def test_scan_reports_storage_types_and_exact_duplicates_without_modifying_files
     assert _snapshot(root) == before
 
 
+def test_executable_files_are_not_misclassified_as_changed_during_inventory(tmp_path):
+    root = tmp_path / "Downloads"
+    root.mkdir()
+    (root / "setup-one.exe").write_bytes(b"same installer payload")
+    (root / "setup-renamed.exe").write_bytes(b"same installer payload")
+
+    result = CleanerScanEngine().scan(root)
+
+    assert result.files_scanned == 2
+    assert {finding.extension for finding in result.all_files} == {".exe"}
+    assert len(result.duplicates) == 1
+    assert len(result.duplicates[0]) == 2
+
+
 def test_scan_counts_large_and_old_file_thresholds(tmp_path):
     root = tmp_path / "Selected"
     root.mkdir()
@@ -63,6 +77,58 @@ def test_scan_counts_large_and_old_file_thresholds(tmp_path):
     assert result.old_totals[90]["files"] == 1
     assert result.old_totals[180]["files"] == 1
     assert [finding.name for finding in result.old_files] == ["old.txt"]
+
+
+def test_complete_inventory_supports_filters_beyond_top_file_limit(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    downloads = home / "Downloads"
+    downloads.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    monkeypatch.setattr(cleaner_engine.tempfile, "gettempdir", lambda: home / "Temp")
+
+    for index in range(500):
+        (downloads / f"ordinary-{index:03}.bin").write_bytes(bytes([index % 251]) * (index + 2))
+    target = downloads / "needle.mp3"
+    target.write_bytes(b"x")
+
+    result = CleanerScanEngine().scan(downloads, include_duplicates=False)
+
+    assert result.files_scanned == 501
+    assert len(result.all_files) == 501
+    assert len(result.largest_files) == 500
+    assert all(finding.path != str(target) for finding in result.largest_files)
+    assert next(finding for finding in result.all_files if finding.path == str(target)).name == "needle.mp3"
+    assert result.location_scope["downloads"]
+    assert not result.location_scope["temporary"]
+
+
+def test_download_findings_explain_partial_installer_archive_and_old_files(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    downloads = home / "Downloads"
+    downloads.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    monkeypatch.setattr(cleaner_engine.tempfile, "gettempdir", lambda: home / "Temp")
+    (downloads / "setup.exe").write_bytes(b"installer")
+    (downloads / "archive.zip").write_bytes(b"archive")
+    (downloads / "in-progress.crdownload").write_bytes(b"partial")
+    old = downloads / "old.txt"
+    old.write_bytes(b"unknown purpose")
+    old_timestamp = (datetime.now().astimezone() - timedelta(days=120)).timestamp()
+    os.utime(old, (old_timestamp, old_timestamp))
+
+    result = CleanerScanEngine().scan(downloads, include_duplicates=False)
+    findings = {finding.name: finding for finding in result.all_files}
+
+    assert "Installer" in findings["setup.exe"].reason
+    assert "not imply it is unnecessary" in findings["setup.exe"].consequence
+    assert "Archive" in findings["archive.zip"].reason
+    assert "Possible incomplete download" in findings["in-progress.crdownload"].reason
+    assert findings["in-progress.crdownload"].recommendation == "Review carefully"
+    assert "older than 90 days" in findings["old.txt"].reason
 
 
 def test_visible_findings_have_scan_time_hash_and_identity(tmp_path):

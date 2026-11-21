@@ -37,9 +37,15 @@ Windows 10/11, Python 3.11+ (the tested setup used Python 3.13):
 ```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\jasti-one.exe
+```
+Do not run as Administrator. The `pdcm` module command remains available for compatibility:
+```powershell
 .\.venv\Scripts\python.exe -m pdcm
 ```
-Do not run as Administrator. The internal Python package and launch command remain `pdcm` for compatibility; the product branding is Jasti One.
+
+For the Cleaner usability regression checklist, see
+[`docs/JASTI_CLEANER_MANUAL_TEST_CHECKLIST.md`](docs/JASTI_CLEANER_MANUAL_TEST_CHECKLIST.md).
 
 ## iPhone setup
 On macOS, create a SwiftUI iOS app target in Xcode and add the Swift files under `ios/PDCMCompanion`. Test PhotoKit and Contacts on a physical iPhone. No deletion or network pairing is implemented.

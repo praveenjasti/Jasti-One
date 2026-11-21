@@ -41,6 +41,15 @@ _VIDEO = {".avi", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".webm", ".wm
 _ARCHIVE = {".7z", ".bz2", ".gz", ".rar", ".tar", ".zip"}
 _INSTALLER = {".appx", ".appxbundle", ".exe", ".msi", ".msix", ".msixbundle"}
 _DISK_IMAGE = {".img", ".iso", ".vhd", ".vhdx"}
+_INCOMPLETE_DOWNLOAD = {
+    ".aria2",
+    ".crdownload",
+    ".download",
+    ".filepart",
+    ".opdownload",
+    ".part",
+    ".partial",
+}
 
 ProgressCallback = Callable[[str, int, int], None]
 
@@ -94,6 +103,9 @@ class CleanerScanResult:
     old_totals: dict[int, dict[str, int]]
     large_totals: dict[int, dict[str, int]]
     duplicates: list[list[DuplicateItem]] = field(default_factory=list)
+    all_files: list[FileFinding] = field(default_factory=list)
+    location_all_files: dict[str, list[FileFinding]] = field(default_factory=dict)
+    location_scope: dict[str, bool] = field(default_factory=dict)
 
     @property
     def duplicate_potential_bytes(self) -> int:
@@ -200,8 +212,8 @@ def classify_location(
     rules = {
         "temporary": (
             "Located under a recognized temporary directory",
-            "Potentially reclaimable",
-            "Temporary files may belong to active applications; no file is changed.",
+            "Review carefully",
+            "The file may be active or locked; usage is not tested and no file is changed.",
         ),
         "browser_cache": (
             "Located under a supported browser cache/profile directory",
@@ -241,6 +253,31 @@ def classify_location(
             matches = any(_is_within(candidate, root.absolute()) for root in roots)
         if matches:
             reason, recommendation, consequence = rules[category]
+            if category == "developer_cache":
+                matching_root = max(
+                    (root.absolute() for root in roots if _is_within(candidate, root.absolute())),
+                    key=lambda root: len(root.parts),
+                )
+                parts = tuple(part.casefold() for part in matching_root.parts)
+                if matching_root.name.casefold() == "npm-cache":
+                    label = "npm cache"
+                elif matching_root.name.casefold() == "cache" and "yarn" in parts:
+                    label = "Yarn cache"
+                elif matching_root.name.casefold() == "cache" and "pip" in parts:
+                    label = "pip cache"
+                elif matching_root.name.casefold() == "store":
+                    label = "pnpm store"
+                elif matching_root.name.casefold() == "repository":
+                    label = "Maven repository"
+                elif matching_root.name.casefold() == "caches":
+                    label = "Gradle cache"
+                elif matching_root.name.casefold() == "packages":
+                    label = "NuGet package cache"
+                elif matching_root.name.casefold() == "registry":
+                    label = "Cargo registry cache"
+                else:
+                    label = "developer cache"
+                reason = f"Located under a recognized {label}"
             return category, reason, recommendation, consequence
     return (
         "other",
@@ -338,6 +375,16 @@ class CleanerScanEngine:
             for size in (100 * 1024**2, 500 * 1024**2, 1024**3)
         }
         locations = known_analysis_locations()
+        selected_root = root.absolute()
+        location_scope = {
+            category: any(
+                _is_within(selected_root, known_root.absolute())
+                or _is_within(known_root.absolute(), selected_root)
+                for known_root in roots
+            )
+            for category, roots in locations.items()
+        }
+        all_files: list[FileFinding] = []
         now = time.time()
         top_directory_heap = largest_directories
 
@@ -418,7 +465,7 @@ class CleanerScanEngine:
                             or getattr(current, "st_file_attributes", 0) & _REPARSE_POINT
                             or info.st_size != current.st_size
                             or info.st_mtime_ns != current.st_mtime_ns
-                            or info.st_mode != current.st_mode
+                            or stat.S_IFMT(info.st_mode) != stat.S_IFMT(current.st_mode)
                         ):
                             result_data["inaccessible_entries"] += 1
                             continue
@@ -444,6 +491,30 @@ class CleanerScanEngine:
                             ),
                             "Other",
                         )
+                        if category == "downloads":
+                            if extension in _INCOMPLETE_DOWNLOAD:
+                                reason = (
+                                    f"Possible incomplete download ({extension}); "
+                                    "confirm that the download is no longer active."
+                                )
+                                recommendation = "Review carefully"
+                                consequence = (
+                                    "This file may still be written by a download manager; "
+                                    "no file is changed."
+                                )
+                            elif kind != "Other":
+                                reason = f"{kind} located in the current user's Downloads folder"
+                                if age_days >= 90:
+                                    reason += "; modified more than 90 days ago"
+                                consequence = (
+                                    "This may be a useful installer, archive, or disk image; "
+                                    "age and size do not imply it is unnecessary."
+                                )
+                            elif age_days >= 90:
+                                reason = (
+                                    "Download is older than 90 days; its purpose and continued need "
+                                    "are unknown."
+                                )
                         finding = FileFinding(
                             str(path),
                             path.name,
@@ -459,6 +530,7 @@ class CleanerScanEngine:
                         )
                         result_data["files_scanned"] += 1
                         result_data["bytes_scanned"] += size
+                        all_files.append(finding)
                         frame.total_size += size
                         largest_files.add(finding)
                         if category in location_files:
@@ -552,6 +624,13 @@ class CleanerScanEngine:
                 for item in items
             ]
 
+        location_all_files = {
+            category: sorted(
+                (finding for finding in all_files if finding.location_category == category),
+                key=lambda finding: (-finding.size, finding.path.casefold()),
+            )
+            for category in ("temporary", "browser_cache", "developer_cache", "downloads")
+        }
         report("Complete")
         return CleanerScanResult(
             root=str(root),
@@ -571,6 +650,9 @@ class CleanerScanEngine:
             old_totals=old_totals,
             large_totals=large_totals,
             duplicates=duplicates,
+            all_files=all_files,
+            location_all_files=location_all_files,
+            location_scope=location_scope,
         )
 
 
