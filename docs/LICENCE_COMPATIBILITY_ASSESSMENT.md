@@ -1,6 +1,6 @@
 # Jasti One Licence Compatibility Assessment
 
-**Status:** Blocked pending package evidence; legal review required before commercial distribution
+**Status:** Blocked pending actual license/NOTICE and packaging review; legal approval required before commercial distribution
 
 ## Distribution model
 Commercial, proprietary Jasti One application distributed with third-party binaries and libraries. Exact source disclosure, copyleft and notice requirements depend on the final dependency and linking choices.
@@ -17,9 +17,13 @@ Commercial, proprietary Jasti One application distributed with third-party binar
 | Unknown/missing | Not approved | Replace or obtain written permission |
 
 ## Current gate
-No upstream source is copied. PyPI metadata for PySide6 6.7.0 reports `LGPL`; Qt for Python documents LGPL and commercial licensing and notes that some Qt modules are GPL-only. The Qt Company states that LGPL distribution requires, among other items, corresponding library source or an offer, replacement/relinking rights and required installation information, notices and licence text; its list is not exhaustive. These terms have not been assessed against Jasti One's eventual Windows packaging method. Do not assume the desktop application's source may remain closed without satisfying all LGPL conditions.
+No upstream source is copied. The installed PySide6 6.12.0 metadata reports `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`; the installed PySide6_Essentials, PySide6_Addons, PySide6_Pdf 6.12.0.140, PySide6_WebEngine 6.12.0.140 and shiboken6 metadata reports the same expression. Qt for Python documents LGPL and commercial licensing and notes that some Qt modules are GPL-only. The Qt Company states that LGPL distribution requires, among other items, corresponding library source or an offer, replacement/relinking rights and required installation information, notices and licence text; its list is not exhaustive. These terms have not been assessed against Jasti One's eventual Windows packaging method. Do not assume the desktop application's source may remain closed without satisfying all LGPL conditions.
 
-The resolved package set, exact wheel contents, selected Qt modules, plugin loading, bundler output and all license files have not been reviewed. The PySide6 distribution pulls `PySide6-Essentials`, `PySide6-Addons` and `shiboken6` at the same version; all also report `LGPL` in PyPI metadata. Qt for Python's own third-party component notices must be checked against the modules/assets actually redistributed. Some GPL-only Qt functionality may be incompatible with proprietary distribution unless separately licensed.
+The `PySide6==6.12.0` pin resolves on the tested Python 3.13 environment. Its wheel metadata requires PySide6_Essentials, PySide6_Addons, PySide6_WebEngine and PySide6_Pdf. Each of the six installed Qt distributions (including shiboken6) reports `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`; each contains only a 470-byte `LicenseRef-Qt-Commercial.txt` among files named as license/notice, with SHA-256 `4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3`. This is a commercial-license reference, not a complete open-source license text or third-party notice bundle. No separate Qt `LICENSE`/`NOTICE` files were found in the installed package trees. The inspection used unpacked installed wheel contents; raw wheel archives were not separately retained.
+
+The installed tree includes `Qt6WebEngineCore.dll`, `QtWebEngineProcess.exe`, WebEngine `.pak` resources, and Qt PDF DLLs. Qt's official [WebEngine licensing page](https://doc.qt.io/qt-6/qtwebengine-licensing.html) explains that Chromium is incorporated into Qt WebEngine Core and lists the separate third-party license set. The project currently declares the PySide6 metapackage but imports neither WebEngine nor PDF; no bundler/installer configuration exists, so the exact redistributable contents are undetermined. The full packaged Qt and Chromium notice/source obligations must be resolved against version-matched vendor documents before release.
+
+CycloneDX reports 83 components/84 dependency entries and the companion license inventory has metadata for 81 components; `protobuf==7.36.2` and `uritemplate==4.2.0` are unknown in the SBOM. The inventory is [`security-reports/dependency-licenses.csv`](../security-reports/dependency-licenses.csv); it does not replace inspecting package license files. Installed metadata's possible license expression is not a compliance determination. Some GPL-only Qt functionality may be incompatible with proprietary distribution unless separately licensed.
 
 Before commercial release:
 
@@ -29,4 +33,4 @@ Before commercial release:
 - Confirm relinking/replacement, corresponding-source delivery or written offer, prominent notices, patent obligations and distribution-channel compatibility with legal counsel.
 - Keep any unknown or GPL-only component blocked until approval.
 
-Sources: [Qt for Python licences](https://doc.qt.io/qtforpython-6/licenses.html), [Qt LGPL/GPL obligations](https://www.qt.io/development/open-source-lgpl-obligations), and PyPI metadata for [PySide6 6.7.0](https://pypi.org/project/PySide6/6.7.0/).
+Sources: [Qt for Python licences](https://doc.qt.io/qtforpython-6/licenses.html), [Qt LGPL/GPL obligations](https://www.qt.io/development/open-source-lgpl-obligations), and [PySide6 6.12.0](https://pypi.org/project/PySide6/6.12.0/).

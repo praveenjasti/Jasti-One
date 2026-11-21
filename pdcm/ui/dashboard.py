@@ -16,10 +16,9 @@ class Dashboard(QWidget):
         layout.addWidget(subtitle)
         grid = QGridLayout()
         for i, (name, status) in enumerate([
-            ("Jasti Cleaner", "Windows inventory ready"),
+            ("Jasti Cleaner", "Local PC analysis · read-only"),
             ("Gmail", "Not connected"),
-            ("iPhone", "Companion setup required"),
-            ("iCloud", "Status not yet checked")
+            ("iPhone", "Separate milestone · not integrated")
         ]):
             frame = QFrame()
             frame.setFrameShape(QFrame.StyledPanel)

@@ -1,10 +1,13 @@
 import os
 import pytest
+
 from pdcm.services.path_policy import is_protected_path, validate_user_scan_root
+
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows path policy test")
 def test_windows_system_directory_is_protected():
     assert is_protected_path(r"C:\Windows\System32")
+
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows path policy test")
 def test_program_files_is_protected():
@@ -22,16 +25,26 @@ def test_validate_user_scan_root_rejects_missing_directory(tmp_path):
         validate_user_scan_root(tmp_path / "missing")
 
 
-def test_validate_user_scan_root_rejects_symlink(tmp_path):
+def test_validate_user_scan_root_rejects_symlink(tmp_path, make_symlink):
     target = tmp_path / "target"
     target.mkdir()
     link = tmp_path / "linked"
-    try:
-        link.symlink_to(target, target_is_directory=True)
-    except (OSError, NotImplementedError):
-        pytest.skip("Symbolic-link creation is unavailable")
+    make_symlink(link, target, target_is_directory=True)
     with pytest.raises(ValueError, match="Symbolic links and junctions"):
         validate_user_scan_root(link)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction test")
+def test_validate_user_scan_root_rejects_junction(tmp_path, make_junction):
+    target = tmp_path / "target"
+    target.mkdir()
+    junction = tmp_path / "junction"
+    make_junction(junction, target)
+    try:
+        with pytest.raises(ValueError, match="Symbolic links and junctions"):
+            validate_user_scan_root(junction)
+    finally:
+        os.rmdir(junction)
 
 
 def test_personal_folder_named_windows_is_not_protected(tmp_path):

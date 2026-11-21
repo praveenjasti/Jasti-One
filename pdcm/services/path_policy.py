@@ -35,8 +35,14 @@ def _protected_roots() -> list[Path]:
     return roots
 
 
-def is_protected_path(path: str | os.PathLike[str]) -> bool:
-    resolved = Path(path).resolve()
+def is_protected_path(path: str | os.PathLike[str], *, resolve: bool = True) -> bool:
+    candidate = Path(path)
+    if resolve:
+        candidate = candidate.resolve()
+    elif os.name == "nt":
+        candidate = candidate.absolute()
+
+    resolved = candidate
     if resolved == Path(resolved.anchor):
         return True
     if os.name == "nt":
@@ -59,6 +65,11 @@ def validate_user_scan_root(path: str | os.PathLike[str]) -> Path:
         current /= part
         if is_link_or_junction(current):
             raise ValueError("Symbolic links and junctions are not allowed in scan paths.")
+
+    if os.name == "nt":
+        if is_protected_path(candidate, resolve=False):
+            raise ValueError("Protected system location. Choose a personal data folder.")
+        return candidate
 
     resolved = candidate.resolve(strict=True)
     if not resolved.is_dir():

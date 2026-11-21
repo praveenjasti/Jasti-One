@@ -1,0 +1,12 @@
+.idea/
+.venv/
+venv/
+security-reports/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+Jasti-One-security-gate-source*.zip
